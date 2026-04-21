@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>英単語の意味に関する調査</title>
+  <style>
+    :root {
+      --bg: #f5f7f4;
+      --surface: #ffffff;
+      --ink: #202523;
+      --muted: #5d6762;
+      --line: #d8ded7;
+      --accent: #176f5d;
+      --accent-dark: #0f5245;
+      --accent-soft: #e4f2ed;
+      --warn: #8a5a00;
+      --warn-bg: #fff7df;
+      --danger: #9b2f2f;
+      --danger-bg: #fff0f0;
+      --focus: #2d8f7b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.65;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .topbar {
+      width: min(1040px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 18px 0;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      margin-bottom: 2px;
+      font-size: 1.45rem;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    main {
+      width: min(1040px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 48px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 24px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    label {
+      font-weight: 700;
+    }
+
+    input[type="text"],
+    select,
+    textarea {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus,
+    button:focus {
+      outline: 3px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    button {
+      border: 0;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      padding: 12px 18px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      min-height: 44px;
+    }
+
+    button:hover {
+      background: var(--accent-dark);
+    }
+
+    button.secondary {
+      background: #e9eeee;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+
+    button.secondary:hover {
+      background: #dfe7e4;
+    }
+
+    button:disabled {
+      background: #b7c1bd;
+      cursor: not-allowed;
+    }
+
+    .notice,
+    .warning,
+    .error {
+      border-radius: 8px;
+      padding: 14px 16px;
+      border: 1px solid;
+    }
+
+    .notice {
+      background: var(--accent-soft);
+      border-color: #b9ddd2;
+    }
+
+    .warning {
+      background: var(--warn-bg);
+      border-color: #ead28d;
+      color: var(--warn);
+    }
+
+    .error {
+      display: none;
+      background: var(--danger-bg);
+      border-color: #e2aaaa;
+      color: var(--danger);
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .progress-wrap {
+      min-width: 260px;
+    }
+
+    .progress-text {
+      color: var(--muted);
+      font-size: 0.92rem;
+      text-align: right;
+      margin-bottom: 5px;
+    }
+
+    .progress {
+      height: 8px;
+      background: #dde5e1;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0;
+      background: var(--accent);
+      transition: width 160ms ease;
+    }
+
+    .word {
+      font-size: clamp(2rem, 6vw, 4rem);
+      font-weight: 800;
+      letter-spacing: 0;
+      text-align: center;
+      margin: 10px 0 4px;
+    }
+
+    .sentence {
+      font-size: clamp(1.25rem, 3vw, 2rem);
+      line-height: 1.5;
+      text-align: center;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfb;
+    }
+
+    .target-word {
+      color: var(--accent-dark);
+      font-weight: 800;
+      text-decoration: underline;
+      text-decoration-thickness: 3px;
+      text-underline-offset: 4px;
+    }
+
+    .scale {
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+    }
+
+    .scale-title {
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .scale-options {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(42px, 1fr));
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .scale-option,
+    .choice-option {
+      display: grid;
+      gap: 4px;
+      align-content: center;
+      min-height: 52px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      cursor: pointer;
+      background: #fff;
+    }
+
+    .scale-option {
+      text-align: center;
+    }
+
+    .scale-option:hover,
+    .choice-option:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .scale-option input,
+    .choice-option input {
+      margin: 0 auto;
+    }
+
+    .scale-anchors {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 8px;
+    }
+
+    .choices {
+      display: grid;
+      gap: 10px;
+    }
+
+    .choice-option {
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      text-align: left;
+    }
+
+    .meaning-pair {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .meaning-box {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfb;
+    }
+
+    .meaning-label {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 2px;
+    }
+
+    .meaning-value {
+      font-size: 1.25rem;
+      font-weight: 800;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .topbar,
+      main {
+        width: min(100vw - 20px, 1040px);
+      }
+
+      .topbar,
+      .grid,
+      .meaning-pair {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        display: grid;
+      }
+
+      .progress-text {
+        text-align: left;
+      }
+
+      .panel {
+        padding: 18px;
+      }
+
+      .scale-options {
+        grid-template-columns: repeat(7, minmax(34px, 1fr));
+        gap: 5px;
+      }
+
+      .scale-option {
+        padding: 6px 2px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <div>
+        <h1>英単語の意味に関する調査</h1>
+        <p class="subtitle">項目の順番はランダムです。各画面では、その時点での知識や印象を答えてください。</p>
+      </div>
+      <div class="progress-wrap" aria-live="polite">
+        <div id="progressText" class="progress-text">未開始</div>
+        <div class="progress" aria-hidden="true"><div id="progressBar" class="progress-bar"></div></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div id="app" class="panel"></div>
+  </main>
+
+  <script src="noun_verb_norming.js"></script>
+</body>
+</html>
