@@ -47,7 +47,14 @@ only for a short usability check.
 
 ## Usage
 
-Open `noun_verb_norming.html` in a browser.
+For GitHub Pages, open the repository root URL. `index.html` redirects to the
+norming app:
+
+```text
+https://ryuya-dot-com.github.io/Polysemy_Learning_Norming/
+```
+
+For a local copy, open `noun_verb_norming.html` in a browser.
 
 1. Enter participant information.
 2. Choose `24件（準備済み候補すべて）` unless you are only checking the UI.
