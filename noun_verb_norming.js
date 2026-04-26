@@ -1,4 +1,4 @@
-const APP_VERSION = "noun_verb_norming_v2_2026-04-17";
+const APP_VERSION = "noun_verb_norming_v3_2026-04-27";
 
 const CANDIDATES = [
   {
@@ -391,7 +391,7 @@ const BLOCKS = [
   {
     id: "form_familiarity",
     title: "単語のなじみ",
-    description: "この段階では、動詞の新しい意味や日本語訳は提示しません。"
+    description: "今の時点で分かる範囲で答えてください。"
   },
   {
     id: "known_noun_check",
@@ -401,7 +401,7 @@ const BLOCKS = [
   {
     id: "target_prior_knowledge",
     title: "文中の動詞意味を事前に知っていたか",
-    description: "まだ日本語訳は見せません。文を読んで、文中の動詞意味を実験前から知っていた程度を答えてください。"
+    description: "文を読んで、文中の単語の意味を実験前から知っていた程度を答えてください。"
   },
   {
     id: "target_objective_check",
@@ -415,7 +415,8 @@ const BLOCKS = [
   }
 ];
 
-const STORAGE_KEY = "noun_verb_norming_state_v2";
+const DEFAULT_SET_MODE = "full24";
+const LEGACY_STORAGE_KEYS = ["noun_verb_norming_state_v2"];
 
 const app = document.getElementById("app");
 const progressText = document.getElementById("progressText");
@@ -451,8 +452,7 @@ function shuffleWithSeed(items, seedText) {
   return copy;
 }
 
-function candidateSet(mode) {
-  if (mode === "top10") return CANDIDATES.filter((item) => item.rank <= 10);
+function candidateSet() {
   return [...CANDIDATES];
 }
 
@@ -552,18 +552,23 @@ function updateProgress() {
 }
 
 function persistState() {
-  if (!state) return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  // Each survey run starts fresh; do not restore prior participant state.
 }
 
 function clearPersistedState() {
-  localStorage.removeItem(STORAGE_KEY);
+  LEGACY_STORAGE_KEYS.forEach((key) => {
+    try {
+      localStorage.removeItem(key);
+    } catch (error) {
+      // Storage access can fail in private modes; the survey can still run.
+    }
+  });
 }
 
 function renderWelcome() {
+  clearPersistedState();
   state = { phase: "welcome" };
   updateProgress();
-  const existing = localStorage.getItem(STORAGE_KEY);
   app.innerHTML = `
     <div class="stack">
       <div>
@@ -573,20 +578,10 @@ function renderWelcome() {
       <div class="notice">
         辞書や翻訳ツールは使わず、その場で分かる範囲で答えてください。正解を競うテストではないので、分からない場合も直感に近い選択でかまいません。
       </div>
-      <div class="warning">
-        一部の画面では、まだ日本語訳を見せません。その時点で意味を知っているかどうかを答えてください。
-      </div>
       <div class="grid">
         <div>
           <label for="participantId">参加者ID</label>
           <input id="participantId" type="text" autocomplete="off" placeholder="例: P001">
-        </div>
-        <div>
-          <label for="setMode">提示候補</label>
-          <select id="setMode">
-            <option value="full24">24件（準備済み候補すべて）</option>
-            <option value="top10">10件（短縮版）</option>
-          </select>
         </div>
         <div>
           <label for="proficiency">英語レベル自己申告</label>
@@ -599,36 +594,22 @@ function renderWelcome() {
             <option value="unknown">わからない</option>
           </select>
         </div>
-        <div>
-          <label for="seedInput">ランダム化用ID（任意）</label>
-          <input id="seedInput" type="text" autocomplete="off" placeholder="通常は空欄のままで構いません">
-        </div>
       </div>
       <div class="btn-row">
         <button id="startBtn">開始する</button>
-        ${existing ? '<button class="secondary" id="resumeBtn">前回の途中データを再開</button><button class="secondary" id="discardBtn">途中データを削除</button>' : ""}
       </div>
-      <p class="footer-note">回答はこのブラウザ内に一時保存され、最後にファイルとして保存できます。外部サーバーへの送信は行いません。</p>
+      <p class="footer-note">回答は最後にファイルとして保存できます。外部サーバーへの送信は行いません。</p>
       <div id="errorBox" class="error"></div>
     </div>
   `;
 
   document.getElementById("startBtn").addEventListener("click", startExperiment);
-  const resumeBtn = document.getElementById("resumeBtn");
-  if (resumeBtn) resumeBtn.addEventListener("click", resumeExperiment);
-  const discardBtn = document.getElementById("discardBtn");
-  if (discardBtn) discardBtn.addEventListener("click", () => {
-    clearPersistedState();
-    renderWelcome();
-  });
 }
 
 function startExperiment() {
   clearError();
   const participantId = document.getElementById("participantId").value.trim();
   const proficiency = document.getElementById("proficiency").value;
-  const setMode = document.getElementById("setMode").value;
-  const seedInput = document.getElementById("seedInput").value.trim();
   if (!participantId) {
     showError("参加者IDを入力してください。");
     return;
@@ -638,8 +619,9 @@ function startExperiment() {
     return;
   }
 
-  const seed = seedInput || `${participantId}-${Date.now()}`;
-  const items = candidateSet(setMode);
+  const setMode = DEFAULT_SET_MODE;
+  const seed = `${participantId}-${Date.now()}`;
+  const items = candidateSet();
   const blockOrders = {};
   BLOCKS.forEach((block) => {
     blockOrders[block.id] = shuffleWithSeed(items.map((item) => item.candidate_id), `${seed}:${block.id}`);
@@ -665,18 +647,6 @@ function startExperiment() {
   };
   persistState();
   renderTrial();
-}
-
-function resumeExperiment() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return;
-  try {
-    state = JSON.parse(raw);
-    renderTrial();
-  } catch (error) {
-    clearPersistedState();
-    renderWelcome();
-  }
 }
 
 function currentBlock() {
@@ -766,7 +736,6 @@ function renderTrial() {
 function renderFormFamiliarity(item) {
   return `
     <div class="word">${escapeHtml(item.headword)}</div>
-    <p class="meta">この画面では日本語訳を提示しません。</p>
     <div class="stack">
       ${scale("written_form_familiarity", "この英単語のつづりを見たとき、あなたにはどの程度なじみがありますか。", "全くなじみがない", "非常になじみがある")}
       ${scale("spoken_form_familiarity", "この英単語を聞いたことがある、または発音を知っていると思いますか。", "全く知らない", "よく知っている")}
@@ -938,14 +907,13 @@ function finishExperiment() {
       </div>
       <div class="notice">
         回答数: ${state.responses.length} / ${state.totalTrials}<br>
-        提示セット: ${escapeHtml(displaySetMode(state.participant.set_mode))}<br>
-        ランダム化用ID: ${escapeHtml(state.seed)}
+        回答完了時刻: ${escapeHtml(state.finishedAt)}
       </div>
       <div class="btn-row">
         <button id="downloadLongCsv">長形式CSV</button>
         <button id="downloadWideCsv">横形式CSV</button>
         <button id="downloadJson">JSON</button>
-        <button class="secondary" id="clearAndRestart">保存データを削除して最初へ</button>
+        <button class="secondary" id="clearAndRestart">最初へ戻る</button>
       </div>
       <p class="footer-note">長形式CSVは1行=1画面回答、横形式CSVは1行=1候補です。</p>
     </div>
@@ -963,11 +931,6 @@ function fileName(suffix) {
   const id = state.participant.participant_id.replace(/[^A-Za-z0-9_-]/g, "");
   const mode = state.participant.set_mode;
   return `noun_verb_norming_${mode}_${id}_${suffix}`;
-}
-
-function displaySetMode(mode) {
-  if (mode === "top10") return "10件（短縮版）";
-  return "24件（準備済み候補すべて）";
 }
 
 function csvEscape(value) {

@@ -9,10 +9,11 @@ The human-facing platform for the **operational low-relatedness** norming
 round is already implemented:
 
 - `noun_verb_norming.html`: single-page browser app
-- `noun_verb_norming.js`: embedded 24-candidate set, randomization, local persistence, and CSV/JSON export
+- `noun_verb_norming.js`: embedded 24-candidate set, seeded randomization, distractor choices, and CSV/JSON export
 
 The app is intentionally standalone. No server is required, and responses are
-stored only in the participant's browser until exported.
+kept in the running page until exported. Previous in-progress data is not
+restored on a new visit.
 
 This repository currently covers the low-relatedness norming round only. A
 separate or extended instrument is still needed if the same platform should
@@ -43,7 +44,7 @@ feel too related, the target meaning is too guessable from context, or the
 Japanese gloss is unclear.
 
 For this round, use the 24-item diagnostic mode by default. The 10-item mode is
-only for a short usability check.
+no longer exposed in the participant UI.
 
 ## Usage
 
@@ -57,14 +58,17 @@ https://ryuya-dot-com.github.io/Polysemy_Learning_Norming/
 For a local copy, open `noun_verb_norming.html` in a browser.
 
 1. Enter participant information.
-2. Choose `24件（準備済み候補すべて）` unless you are only checking the UI.
-3. Ask the participant not to use dictionaries or translation tools.
-4. Have the participant complete all blocks in order.
-5. Export all three files at the end:
+2. Ask the participant not to use dictionaries or translation tools.
+3. Have the participant complete all blocks in order.
+4. Export all three files at the end:
    - long CSV
    - wide CSV
    - JSON
-6. Preserve the raw exports before aggregating.
+5. Preserve the raw exports before aggregating.
+
+The participant-facing UI always presents all 24 prepared candidates. It does
+not show candidate-set selection, randomization controls, or previous-session
+resume controls.
 
 ## Measurement Order
 
@@ -81,13 +85,26 @@ The block order is fixed by design:
 Do not randomize the measurement block order. Doing so would contaminate the
 target-prior-knowledge measure.
 
+Within each block, candidate order is pseudo-randomized from a participant/time
+seed. Objective-check distractor choices are also pseudo-randomized.
+
+## Distractors
+
+Distractors are included in the candidate package and in the app:
+
+- known-noun check: 1 correct answer plus 3 distractors
+- target-verb check: 1 correct answer plus 3 distractors
+
+The distractor columns are included in
+`candidate_stimuli_low_relatedness_round1_minimum_v2.csv`.
+
 ## Export Handling
 
 Responses stay local. At the end, download:
 
 - long CSV: one row per screen response
 - wide CSV: one row per candidate
-- JSON: seed, randomized orders, metadata, and all responses
+- JSON: seed, randomized orders, metadata, distractor responses, and all responses
 
 Raw exports should be stored outside this repository during data collection.
 After aggregation, use the wide output to decide which candidates survive to
