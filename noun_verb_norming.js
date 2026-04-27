@@ -1,4 +1,4 @@
-const APP_VERSION = "noun_verb_norming_v3_2026-04-27";
+const APP_VERSION = "noun_verb_norming_v4_probe_2026-04-27";
 
 const CANDIDATES = [
   {
@@ -412,6 +412,11 @@ const BLOCKS = [
     id: "meaning_ratings",
     title: "意味間の関連度・推測可能性",
     description: "名詞意味と動詞意味を両方見たうえで評価してください。"
+  },
+  {
+    id: "probe_ratings",
+    title: "日本語語の適合度",
+    description: "英単語と日本語語の組み合わせが、それぞれの意味にどの程度合うかを評価してください。"
   }
 ];
 
@@ -573,7 +578,7 @@ function renderWelcome() {
     <div class="stack">
       <div>
         <h2>英単語の意味に関する調査</h2>
-        <p>この調査では、英単語の見慣れ、名詞としての意味、文中で使われている動詞の意味、2つの意味の関連度を答えてもらいます。</p>
+        <p>この調査では、英単語の見慣れ、名詞としての意味、文中で使われている動詞の意味、2つの意味の関連度、日本語語との合いやすさを答えてもらいます。</p>
       </div>
       <div class="notice">
         辞書や翻訳ツールは使わず、その場で分かる範囲で答えてください。正解を競うテストではないので、分からない場合も直感に近い選択でかまいません。
@@ -728,6 +733,8 @@ function renderTrial() {
     body.innerHTML = renderTargetObjective(item);
   } else if (block.id === "meaning_ratings") {
     body.innerHTML = renderMeaningRatings(item);
+  } else if (block.id === "probe_ratings") {
+    body.innerHTML = renderProbeRatings(item);
   }
 
   document.getElementById("nextBtn").addEventListener("click", submitTrial);
@@ -794,6 +801,64 @@ function renderMeaningRatings(item) {
       <div>
         <label for="itemNote">任意メモ</label>
         <textarea id="itemNote" placeholder="分かりにくかった点があれば記入してください。"></textarea>
+      </div>
+    </div>
+  `;
+}
+
+function renderProbeRatings(item) {
+  const knownProbe = item.known_noun_correct_ja;
+  const targetProbe = item.target_verb_correct_ja;
+  const alternativeTargetProbes = item.gloss_variants_to_test
+    .filter((probe) => probe !== targetProbe);
+  const unrelatedProbeChoices = randomizedChoices(
+    {
+      ...item,
+      gloss_variants_to_test: item.known_noun_distractors_ja
+    },
+    "probe_unrelated_candidate"
+  );
+  const alternativeHtml = alternativeTargetProbes.length > 0
+    ? `<p class="meta">別候補: ${alternativeTargetProbes.map(escapeHtml).join(" / ")}</p>`
+    : "";
+
+  return `
+    <div class="meaning-pair">
+      <div class="meaning-box">
+        <div class="meaning-label">名詞としての意味</div>
+        <div class="meaning-value">${escapeHtml(item.known_noun_correct_ja)}</div>
+      </div>
+      <div class="meaning-box">
+        <div class="meaning-label">文中の動詞としての意味</div>
+        <div class="meaning-value">${escapeHtml(item.target_verb_correct_ja)}</div>
+      </div>
+    </div>
+    <div class="sentence">${markTarget(item.target_context_sentence_en, item.headword)}</div>
+    <div class="meaning-pair">
+      <div class="meaning-box">
+        <div class="meaning-label">日本語語A</div>
+        <div class="meaning-value">${escapeHtml(knownProbe)}</div>
+      </div>
+      <div class="meaning-box">
+        <div class="meaning-label">日本語語B</div>
+        <div class="meaning-value">${escapeHtml(targetProbe)}</div>
+        ${alternativeHtml}
+      </div>
+    </div>
+    <div class="stack">
+      ${scale("known_probe_fit_to_noun", `日本語語A「${knownProbe}」は、この英単語の名詞の意味にどの程度合っていますか。`, "全く合っていない", "非常によく合っている")}
+      ${scale("known_probe_leaks_to_target", `日本語語A「${knownProbe}」は、文中の動詞の意味にもどの程度関係してしまいますか。`, "全く関係しない", "非常に関係する")}
+      ${scale("target_probe_fit_to_verb", `日本語語B「${targetProbe}」は、文中の動詞の意味にどの程度合っていますか。`, "全く合っていない", "非常によく合っている")}
+      ${scale("target_probe_leaks_to_noun", `日本語語B「${targetProbe}」は、この英単語の名詞の意味にもどの程度関係してしまいますか。`, "全く関係しない", "非常に関係する")}
+      ${scale("target_probe_naturalness", `日本語語B「${targetProbe}」は、日本語としてどの程度自然ですか。`, "非常に不自然", "非常に自然")}
+      <div class="scale">
+        <div class="scale-title">「どちらの意味にも関係しにくい日本語語」として、最もよい候補を1つ選んでください。</div>
+        ${choiceList("best_unrelated_probe_candidate", unrelatedProbeChoices)}
+      </div>
+      ${scale("selected_unrelated_probe_separation", "選んだ日本語語は、名詞の意味にも文中の動詞の意味にも関係しにくいと思いますか。", "かなり関係してしまう", "ほとんど関係しない")}
+      <div>
+        <label for="probeNote">任意メモ</label>
+        <textarea id="probeNote" placeholder="日本語語が分かりにくい、別の語を思いつく、などがあれば記入してください。"></textarea>
       </div>
     </div>
   `;
@@ -881,6 +946,36 @@ function submitTrial() {
       gloss_clarity: requiredRadioValue("gloss_clarity"),
       gloss_variant_preference: requiredRadioValue("gloss_variant_preference"),
       optional_note: document.getElementById("itemNote").value.trim()
+    };
+  } else if (block.id === "probe_ratings") {
+    const fields = [
+      "known_probe_fit_to_noun",
+      "known_probe_leaks_to_target",
+      "target_probe_fit_to_verb",
+      "target_probe_leaks_to_noun",
+      "target_probe_naturalness",
+      "best_unrelated_probe_candidate",
+      "selected_unrelated_probe_separation"
+    ];
+    if (fields.some((field) => !requiredRadioValue(field))) {
+      showError("すべての必須項目に回答してください。");
+      return;
+    }
+    response = {
+      known_noun_correct_answer: item.known_noun_correct_ja,
+      target_verb_correct_answer: item.target_verb_correct_ja,
+      known_probe_candidate: item.known_noun_correct_ja,
+      target_probe_candidate: item.target_verb_correct_ja,
+      target_probe_alternatives: item.gloss_variants_to_test.filter((probe) => probe !== item.target_verb_correct_ja).join(" / "),
+      known_probe_fit_to_noun: requiredRadioValue("known_probe_fit_to_noun"),
+      known_probe_leaks_to_target: requiredRadioValue("known_probe_leaks_to_target"),
+      target_probe_fit_to_verb: requiredRadioValue("target_probe_fit_to_verb"),
+      target_probe_leaks_to_noun: requiredRadioValue("target_probe_leaks_to_noun"),
+      target_probe_naturalness: requiredRadioValue("target_probe_naturalness"),
+      best_unrelated_probe_candidate: requiredRadioValue("best_unrelated_probe_candidate"),
+      best_unrelated_probe_candidate_label: selectedRadioLabel("best_unrelated_probe_candidate"),
+      selected_unrelated_probe_separation: requiredRadioValue("selected_unrelated_probe_separation"),
+      probe_optional_note: document.getElementById("probeNote").value.trim()
     };
   }
 
