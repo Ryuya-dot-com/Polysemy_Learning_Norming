@@ -1,4 +1,4 @@
-const APP_VERSION = "noun_verb_norming_v4_probe_2026-04-27";
+const APP_VERSION = "noun_verb_norming_v5_probe_candidates_2026-04-27";
 
 const CANDIDATES = [
   {
@@ -689,6 +689,29 @@ function randomizedChoices(item, kind) {
   );
 }
 
+function uniqueNonEmpty(values) {
+  const seen = new Set();
+  return (values || [])
+    .map((value) => String(value || "").trim())
+    .filter((value) => {
+      if (!value || seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
+}
+
+function targetProbeCandidates(item) {
+  return uniqueNonEmpty([item.target_verb_correct_ja, ...(item.gloss_variants_to_test || [])]);
+}
+
+function unrelatedProbeCandidates(item) {
+  return uniqueNonEmpty(item.known_noun_distractors_ja || []);
+}
+
+function probeChoiceList(candidates) {
+  return candidates.map((label) => ({ value: label, label, correct: false }));
+}
+
 function renderTrial() {
   if (!state || state.phase !== "running") {
     renderWelcome();
@@ -808,19 +831,30 @@ function renderMeaningRatings(item) {
 
 function renderProbeRatings(item) {
   const knownProbe = item.known_noun_correct_ja;
-  const targetProbe = item.target_verb_correct_ja;
-  const alternativeTargetProbes = item.gloss_variants_to_test
-    .filter((probe) => probe !== targetProbe);
-  const unrelatedProbeChoices = randomizedChoices(
-    {
-      ...item,
-      gloss_variants_to_test: item.known_noun_distractors_ja
-    },
-    "probe_unrelated_candidate"
-  );
-  const alternativeHtml = alternativeTargetProbes.length > 0
-    ? `<p class="meta">別候補: ${alternativeTargetProbes.map(escapeHtml).join(" / ")}</p>`
-    : "";
+  const targetCandidates = targetProbeCandidates(item);
+  const unrelatedCandidates = unrelatedProbeCandidates(item);
+  const targetCandidateHtml = targetCandidates.map((candidate, index) => {
+    const n = index + 1;
+    return `
+      <div class="probe-candidate-group">
+        <div class="scale-title">動詞の日本語候補 ${n}: 「${escapeHtml(candidate)}」</div>
+        ${scale(`target_probe_candidate_${n}_fit_to_verb`, `「${candidate}」は、文中の動詞の意味にどの程度合っていますか。`, "全く合っていない", "非常によく合っている")}
+        ${scale(`target_probe_candidate_${n}_leaks_to_noun`, `「${candidate}」は、この英単語の名詞の意味にもどの程度関係してしまいますか。`, "全く関係しない", "非常に関係する")}
+        ${scale(`target_probe_candidate_${n}_naturalness`, `「${candidate}」は、日本語としてどの程度自然ですか。`, "非常に不自然", "非常に自然")}
+      </div>
+    `;
+  }).join("");
+  const unrelatedCandidateHtml = unrelatedCandidates.map((candidate, index) => {
+    const n = index + 1;
+    return `
+      <div class="probe-candidate-group">
+        <div class="scale-title">無関連候補 ${n}: 「${escapeHtml(candidate)}」</div>
+        ${scale(`unrelated_probe_candidate_${n}_relation_to_noun`, `「${candidate}」は、この英単語の名詞の意味にどの程度関係してしまいますか。`, "全く関係しない", "非常に関係する")}
+        ${scale(`unrelated_probe_candidate_${n}_relation_to_verb`, `「${candidate}」は、文中の動詞の意味にどの程度関係してしまいますか。`, "全く関係しない", "非常に関係する")}
+        ${scale(`unrelated_probe_candidate_${n}_naturalness`, `「${candidate}」は、日本語としてどの程度自然ですか。`, "非常に不自然", "非常に自然")}
+      </div>
+    `;
+  }).join("");
 
   return `
     <div class="meaning-pair">
@@ -840,20 +874,18 @@ function renderProbeRatings(item) {
         <div class="meaning-value">${escapeHtml(knownProbe)}</div>
       </div>
       <div class="meaning-box">
-        <div class="meaning-label">日本語語B</div>
-        <div class="meaning-value">${escapeHtml(targetProbe)}</div>
-        ${alternativeHtml}
+        <div class="meaning-label">動詞の日本語候補</div>
+        <div class="meaning-value">${targetCandidates.map(escapeHtml).join(" / ")}</div>
       </div>
     </div>
     <div class="stack">
       ${scale("known_probe_fit_to_noun", `日本語語A「${knownProbe}」は、この英単語の名詞の意味にどの程度合っていますか。`, "全く合っていない", "非常によく合っている")}
       ${scale("known_probe_leaks_to_target", `日本語語A「${knownProbe}」は、文中の動詞の意味にもどの程度関係してしまいますか。`, "全く関係しない", "非常に関係する")}
-      ${scale("target_probe_fit_to_verb", `日本語語B「${targetProbe}」は、文中の動詞の意味にどの程度合っていますか。`, "全く合っていない", "非常によく合っている")}
-      ${scale("target_probe_leaks_to_noun", `日本語語B「${targetProbe}」は、この英単語の名詞の意味にもどの程度関係してしまいますか。`, "全く関係しない", "非常に関係する")}
-      ${scale("target_probe_naturalness", `日本語語B「${targetProbe}」は、日本語としてどの程度自然ですか。`, "非常に不自然", "非常に自然")}
+      ${targetCandidateHtml}
+      ${unrelatedCandidateHtml}
       <div class="scale">
         <div class="scale-title">「どちらの意味にも関係しにくい日本語語」として、最もよい候補を1つ選んでください。</div>
-        ${choiceList("best_unrelated_probe_candidate", unrelatedProbeChoices)}
+        ${choiceList("best_unrelated_probe_candidate", probeChoiceList(unrelatedCandidates))}
       </div>
       ${scale("selected_unrelated_probe_separation", "選んだ日本語語は、名詞の意味にも文中の動詞の意味にも関係しにくいと思いますか。", "かなり関係してしまう", "ほとんど関係しない")}
       <div>
@@ -948,12 +980,27 @@ function submitTrial() {
       optional_note: document.getElementById("itemNote").value.trim()
     };
   } else if (block.id === "probe_ratings") {
+    const targetCandidates = targetProbeCandidates(item);
+    const unrelatedCandidates = unrelatedProbeCandidates(item);
     const fields = [
       "known_probe_fit_to_noun",
       "known_probe_leaks_to_target",
-      "target_probe_fit_to_verb",
-      "target_probe_leaks_to_noun",
-      "target_probe_naturalness",
+      ...targetCandidates.flatMap((_, index) => {
+        const n = index + 1;
+        return [
+          `target_probe_candidate_${n}_fit_to_verb`,
+          `target_probe_candidate_${n}_leaks_to_noun`,
+          `target_probe_candidate_${n}_naturalness`
+        ];
+      }),
+      ...unrelatedCandidates.flatMap((_, index) => {
+        const n = index + 1;
+        return [
+          `unrelated_probe_candidate_${n}_relation_to_noun`,
+          `unrelated_probe_candidate_${n}_relation_to_verb`,
+          `unrelated_probe_candidate_${n}_naturalness`
+        ];
+      }),
       "best_unrelated_probe_candidate",
       "selected_unrelated_probe_separation"
     ];
@@ -965,18 +1012,34 @@ function submitTrial() {
       known_noun_correct_answer: item.known_noun_correct_ja,
       target_verb_correct_answer: item.target_verb_correct_ja,
       known_probe_candidate: item.known_noun_correct_ja,
-      target_probe_candidate: item.target_verb_correct_ja,
-      target_probe_alternatives: item.gloss_variants_to_test.filter((probe) => probe !== item.target_verb_correct_ja).join(" / "),
+      target_probe_candidate: targetCandidates[0] || "",
+      target_probe_alternatives: targetCandidates.slice(1).join(" / "),
+      target_probe_candidates_all: targetCandidates.join(" / "),
+      unrelated_probe_candidates_all: unrelatedCandidates.join(" / "),
       known_probe_fit_to_noun: requiredRadioValue("known_probe_fit_to_noun"),
       known_probe_leaks_to_target: requiredRadioValue("known_probe_leaks_to_target"),
-      target_probe_fit_to_verb: requiredRadioValue("target_probe_fit_to_verb"),
-      target_probe_leaks_to_noun: requiredRadioValue("target_probe_leaks_to_noun"),
-      target_probe_naturalness: requiredRadioValue("target_probe_naturalness"),
+      target_probe_fit_to_verb: requiredRadioValue("target_probe_candidate_1_fit_to_verb"),
+      target_probe_leaks_to_noun: requiredRadioValue("target_probe_candidate_1_leaks_to_noun"),
+      target_probe_naturalness: requiredRadioValue("target_probe_candidate_1_naturalness"),
       best_unrelated_probe_candidate: requiredRadioValue("best_unrelated_probe_candidate"),
       best_unrelated_probe_candidate_label: selectedRadioLabel("best_unrelated_probe_candidate"),
       selected_unrelated_probe_separation: requiredRadioValue("selected_unrelated_probe_separation"),
       probe_optional_note: document.getElementById("probeNote").value.trim()
     };
+    targetCandidates.forEach((candidate, index) => {
+      const n = index + 1;
+      response[`target_probe_candidate_${n}_label`] = candidate;
+      response[`target_probe_candidate_${n}_fit_to_verb`] = requiredRadioValue(`target_probe_candidate_${n}_fit_to_verb`);
+      response[`target_probe_candidate_${n}_leaks_to_noun`] = requiredRadioValue(`target_probe_candidate_${n}_leaks_to_noun`);
+      response[`target_probe_candidate_${n}_naturalness`] = requiredRadioValue(`target_probe_candidate_${n}_naturalness`);
+    });
+    unrelatedCandidates.forEach((candidate, index) => {
+      const n = index + 1;
+      response[`unrelated_probe_candidate_${n}_label`] = candidate;
+      response[`unrelated_probe_candidate_${n}_relation_to_noun`] = requiredRadioValue(`unrelated_probe_candidate_${n}_relation_to_noun`);
+      response[`unrelated_probe_candidate_${n}_relation_to_verb`] = requiredRadioValue(`unrelated_probe_candidate_${n}_relation_to_verb`);
+      response[`unrelated_probe_candidate_${n}_naturalness`] = requiredRadioValue(`unrelated_probe_candidate_${n}_naturalness`);
+    });
   }
 
   state.responses.push({ ...common, ...response });
