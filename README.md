@@ -9,7 +9,7 @@ The human-facing platform for the **operational low-relatedness** norming
 round is already implemented:
 
 - `noun_verb_norming.html`: single-page browser app
-- `noun_verb_norming.js`: embedded 24-candidate set, seeded randomization, distractor choices, and CSV/JSON export
+- `noun_verb_norming.js`: embedded 24-candidate set, seeded randomization, distractor choices, probe-fit ratings, and CSV/JSON export
 
 The app is intentionally standalone. No server is required, and responses are
 kept in the running page until exported. Previous in-progress data is not
@@ -18,6 +18,10 @@ restored on a new visit.
 This repository currently covers the low-relatedness norming round only. A
 separate or extended instrument is still needed if the same platform should
 collect polysemy and control norming in the same session.
+
+The current app also collects probe evidence needed for the main experiment:
+known-meaning probe fit, target-meaning probe fit, cross-meaning leakage, probe
+naturalness, and unrelated-probe separation.
 
 ## Candidate Files
 
@@ -81,9 +85,14 @@ The block order is fixed by design:
 4. Objective target-verb check.
 5. Relatedness, guessability, overlap/confusability, gloss clarity, and gloss
    preference after both meanings are visible.
+6. Japanese probe ratings after both meanings are visible.
 
 Do not randomize the measurement block order. Doing so would contaminate the
 target-prior-knowledge measure.
+
+Probe ratings are deliberately last because both meanings must be visible. This
+prevents the probe task from contaminating prior-knowledge and relatedness
+judgments.
 
 Within each block, candidate order is pseudo-randomized from a participant/time
 seed. Objective-check distractor choices are also pseudo-randomized.
@@ -94,6 +103,8 @@ Distractors are included in the candidate package and in the app:
 
 - known-noun check: 1 correct answer plus 3 distractors
 - target-verb check: 1 correct answer plus 3 distractors
+- probe block: candidate known-meaning probe, candidate target-meaning probe,
+  and unrelated-probe candidates
 
 The distractor columns are included in
 `candidate_stimuli_low_relatedness_round1_minimum_v2.csv`.
