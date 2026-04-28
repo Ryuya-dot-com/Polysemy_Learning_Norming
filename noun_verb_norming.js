@@ -708,6 +708,14 @@ function unrelatedProbeCandidates(item) {
   return uniqueNonEmpty(item.known_noun_distractors_ja || []);
 }
 
+function orderedTargetProbeCandidates(item) {
+  return shuffleWithSeed(targetProbeCandidates(item), `${state.seed}:target_probe_candidates:${item.candidate_id}`);
+}
+
+function orderedUnrelatedProbeCandidates(item) {
+  return shuffleWithSeed(unrelatedProbeCandidates(item), `${state.seed}:unrelated_probe_candidates:${item.candidate_id}`);
+}
+
 function probeChoiceList(candidates) {
   return candidates.map((label) => ({ value: label, label, correct: false }));
 }
@@ -831,8 +839,8 @@ function renderMeaningRatings(item) {
 
 function renderProbeRatings(item) {
   const knownProbe = item.known_noun_correct_ja;
-  const targetCandidates = targetProbeCandidates(item);
-  const unrelatedCandidates = unrelatedProbeCandidates(item);
+  const targetCandidates = orderedTargetProbeCandidates(item);
+  const unrelatedCandidates = orderedUnrelatedProbeCandidates(item);
   const targetCandidateHtml = targetCandidates.map((candidate, index) => {
     const n = index + 1;
     return `
@@ -980,8 +988,10 @@ function submitTrial() {
       optional_note: document.getElementById("itemNote").value.trim()
     };
   } else if (block.id === "probe_ratings") {
-    const targetCandidates = targetProbeCandidates(item);
-    const unrelatedCandidates = unrelatedProbeCandidates(item);
+    const targetCandidates = orderedTargetProbeCandidates(item);
+    const unrelatedCandidates = orderedUnrelatedProbeCandidates(item);
+    const canonicalTargetIndex = targetCandidates.indexOf(item.target_verb_correct_ja);
+    const canonicalTargetNumber = canonicalTargetIndex >= 0 ? canonicalTargetIndex + 1 : 1;
     const fields = [
       "known_probe_fit_to_noun",
       "known_probe_leaks_to_target",
@@ -1012,15 +1022,15 @@ function submitTrial() {
       known_noun_correct_answer: item.known_noun_correct_ja,
       target_verb_correct_answer: item.target_verb_correct_ja,
       known_probe_candidate: item.known_noun_correct_ja,
-      target_probe_candidate: targetCandidates[0] || "",
-      target_probe_alternatives: targetCandidates.slice(1).join(" / "),
+      target_probe_candidate: item.target_verb_correct_ja,
+      target_probe_alternatives: targetProbeCandidates(item).filter((probe) => probe !== item.target_verb_correct_ja).join(" / "),
       target_probe_candidates_all: targetCandidates.join(" / "),
       unrelated_probe_candidates_all: unrelatedCandidates.join(" / "),
       known_probe_fit_to_noun: requiredRadioValue("known_probe_fit_to_noun"),
       known_probe_leaks_to_target: requiredRadioValue("known_probe_leaks_to_target"),
-      target_probe_fit_to_verb: requiredRadioValue("target_probe_candidate_1_fit_to_verb"),
-      target_probe_leaks_to_noun: requiredRadioValue("target_probe_candidate_1_leaks_to_noun"),
-      target_probe_naturalness: requiredRadioValue("target_probe_candidate_1_naturalness"),
+      target_probe_fit_to_verb: requiredRadioValue(`target_probe_candidate_${canonicalTargetNumber}_fit_to_verb`),
+      target_probe_leaks_to_noun: requiredRadioValue(`target_probe_candidate_${canonicalTargetNumber}_leaks_to_noun`),
+      target_probe_naturalness: requiredRadioValue(`target_probe_candidate_${canonicalTargetNumber}_naturalness`),
       best_unrelated_probe_candidate: requiredRadioValue("best_unrelated_probe_candidate"),
       best_unrelated_probe_candidate_label: selectedRadioLabel("best_unrelated_probe_candidate"),
       selected_unrelated_probe_separation: requiredRadioValue("selected_unrelated_probe_separation"),
@@ -1114,6 +1124,21 @@ function longCsv() {
   return rowsToCsv(state.responses);
 }
 
+const WIDE_COMMON_FIELDS = new Set([
+  "app_version",
+  "participant_id",
+  "proficiency_self_report",
+  "set_mode",
+  "seed",
+  "candidate_id",
+  "rank",
+  "headword",
+  "round1_role",
+  "round1_use_priority",
+  "prompt_source",
+  "source_audit_decision"
+]);
+
 function wideCsv() {
   const byItem = new Map();
   state.responses.forEach((row) => {
@@ -1135,9 +1160,12 @@ function wideCsv() {
     }
     const target = byItem.get(row.candidate_id);
     Object.entries(row).forEach(([key, value]) => {
-      if (key.includes("response_") || key.endsWith("_at") || key === "block_id") return;
-      if (!(key in target)) target[key] = value;
-      else target[`${row.block_id}_${key}`] = value;
+      if (key.includes("response_") || key.endsWith("_at") || key === "block_id" || key === "block_index" || key === "item_position_in_block") return;
+      if (WIDE_COMMON_FIELDS.has(key)) {
+        if (!(key in target)) target[key] = value;
+        return;
+      }
+      target[`${row.block_id}_${key}`] = value;
     });
   });
   return rowsToCsv(Array.from(byItem.values()).sort((a, b) => Number(a.rank) - Number(b.rank)));
