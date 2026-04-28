@@ -1,4 +1,4 @@
-const APP_VERSION = "noun_verb_norming_v5_probe_candidates_2026-04-27";
+const APP_VERSION = "noun_verb_norming_v6_probe_candidates_breaks_2026-04-28";
 
 const CANDIDATES = [
   {
@@ -552,7 +552,8 @@ function updateProgress() {
   const total = state.totalTrials;
   const done = state.blockIndex * state.itemCount + state.itemIndex;
   const percent = Math.round((done / total) * 100);
-  progressText.textContent = `${done + 1} / ${total} (${percent}%)`;
+  const displayDone = state.phase === "break" ? done : Math.min(done + 1, total);
+  progressText.textContent = `${displayDone} / ${total} (${percent}%)`;
   progressBar.style.width = `${percent}%`;
 }
 
@@ -664,6 +665,41 @@ function currentItem() {
   return CANDIDATES.find((item) => item.candidate_id === id);
 }
 
+function renderBreak() {
+  if (!state || state.phase !== "break") {
+    renderWelcome();
+    return;
+  }
+  if (state.blockIndex >= BLOCKS.length) {
+    finishExperiment();
+    return;
+  }
+
+  updateProgress();
+  const completedBlock = BLOCKS[state.blockIndex - 1];
+  const nextBlock = currentBlock();
+  app.innerHTML = `
+    <div class="stack">
+      <div>
+        <p class="meta">休憩</p>
+        <h2>ここで短く休憩してください</h2>
+        <p>${escapeHtml(completedBlock.title)} が完了しました。次は ${escapeHtml(nextBlock.title)} です。</p>
+      </div>
+      <div class="notice">
+        画面を開いたまま、必要に応じて休憩してください。準備ができたら次のセクションへ進んでください。
+      </div>
+      <div class="btn-row">
+        <button id="continueAfterBreak">次のセクションへ</button>
+      </div>
+    </div>
+  `;
+  document.getElementById("continueAfterBreak").addEventListener("click", () => {
+    state.phase = "running";
+    persistState();
+    renderTrial();
+  });
+}
+
 function randomizedChoices(item, kind) {
   if (kind === "known_noun") {
     return shuffleWithSeed(
@@ -721,6 +757,10 @@ function probeChoiceList(candidates) {
 }
 
 function renderTrial() {
+  if (state && state.phase === "break") {
+    renderBreak();
+    return;
+  }
   if (!state || state.phase !== "running") {
     renderWelcome();
     return;
@@ -1057,6 +1097,12 @@ function submitTrial() {
   if (state.itemIndex >= state.itemCount) {
     state.itemIndex = 0;
     state.blockIndex += 1;
+    if (state.blockIndex < BLOCKS.length) {
+      state.phase = "break";
+      persistState();
+      renderBreak();
+      return;
+    }
   }
   persistState();
   renderTrial();
